@@ -1,0 +1,20 @@
+language: python
+
+python:
+  - "3.6"
+  - "3.5"
+
+services: redis
+
+install:
+  - "pip install ."
+  - "pip install -r test_app/requirements"
+
+script:
+  - cd test_app/demo
+  - python manage.py migrate
+  - coverage run --source="$VIRTUAL_ENV/lib/python3.6/site-packages/drf_redis_tokens/" manage.py test tests/
+
+after_success:
+  - coverage report
+  - coveralls

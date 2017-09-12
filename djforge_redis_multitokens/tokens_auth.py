@@ -10,7 +10,6 @@ from .utils import parse_full_token
 
 
 TOKENS_CACHE = caches[drt_settings.REDIS_DB_NAME]
-User = get_user_model()
 
 
 class MultiToken:
@@ -40,10 +39,10 @@ class MultiToken:
     def get_user_from_token(cls, full_token):
         token, hash = parse_full_token(full_token)
         if verify_token(token, hash):
-            user = User.objects.get(pk=TOKENS_CACHE.get(hash))
+            user = get_user_model().objects.get(pk=TOKENS_CACHE.get(hash))
             return user
         else:
-            raise User.DoesNotExist
+            raise get_user_model().DoesNotExist
 
     @classmethod
     def expire_token(cls, full_token):
@@ -99,7 +98,7 @@ class CachedTokenAuthentication(TokenAuthentication):
             if drt_settings.RESET_TOKEN_TTL_ON_USER_LOG_IN:
                 MultiToken.reset_tokens_ttl(user.pk)
 
-        except User.DoesNotExist:
+        except get_user_model().DoesNotExist:
             raise exceptions.AuthenticationFailed('Invalid token.')
 
         if not user.is_active:
