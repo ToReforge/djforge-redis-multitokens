@@ -3,7 +3,6 @@ try:
 except ImportError:
     from mock import patch
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -132,24 +131,27 @@ class TestExpireAllTokenMethod(SetupTearDownForMultiTokenTests, TestCase):
 class TestSetValueInCacheMethod(SetupTearDownForMultiTokenTests, TestCase):
 
     @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings(timeout=None))
-    def test_default_timeout_for_cache_db_is_used_when_it_is_provided(self):
-        MultiToken._set_value_in_cache('key', 'value')
+    def test_default_timeout_for_cache_db_is_used_when_timeout_is_not_provided_provided(self):
+        MultiToken._set_key_value('key', 'value')
         self.assertIsNone(TOKENS_CACHE.ttl('key'))
 
-    @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings())
-    def test_token_ttl_settings_of_djforge_redis_multitokens_settings_is_used_when_redis_db_timeout_argument_is_not_given(self):
-        MultiToken._set_value_in_cache('key', 'value')
+    @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings(timeout=1000))
+    def test_token_ttl_is_correct_when_user_provides_cache_db_timeout_parameter(self):
+        MultiToken._set_key_value('key', 'value')
         self.assertIsNotNone(TOKENS_CACHE.ttl('key'))
-        self.assertAlmostEquals(TOKENS_CACHE.ttl('key'), settings.DJFORGE_REDIS_MULTITOKENS['TOKEN_TTL_IN_SECONDS'])
+        self.assertAlmostEquals(TOKENS_CACHE.ttl('key'), 1000)
 
 
 class TestResetTokensTTLMethod(SetupTearDownForMultiTokenTests, TestCase):
 
-    @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings(timeout=None))
+    @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings(timeout=1000))
     def test_users_immortal_tokens_get_limited_ttl_when_OVERWRITE_NONE_TTL_setting_is_True(self):
+        hash = TOKENS_CACHE.get(self.user.pk)[0]
+        self.assertIsNone(TOKENS_CACHE.ttl(self.user.pk))
+        self.assertIsNone(TOKENS_CACHE.ttl(hash))
+
         MultiToken.reset_tokens_ttl(self.user.pk)
         self.assertIsNotNone(TOKENS_CACHE.ttl(self.user.pk))
-        hash = TOKENS_CACHE.get(self.user.pk)[0]
         self.assertIsNotNone(TOKENS_CACHE.ttl(hash))
 
     @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings(timeout=None))
@@ -161,20 +163,70 @@ class TestResetTokensTTLMethod(SetupTearDownForMultiTokenTests, TestCase):
         self.assertIsNone(TOKENS_CACHE.ttl(self.user.pk))
         self.assertIsNone(TOKENS_CACHE.ttl(hash))
 
+    @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings(timeout=1000))
     def test_other_users_tokens_are_not_affected(self):
         second_user = create_test_user('tester2')
         second_token, _ = MultiToken.create_token(second_user)
+        import time
+        time.sleep(1)
         MultiToken.reset_tokens_ttl(self.user.pk)
 
-        self.assertIsNotNone(TOKENS_CACHE.ttl(self.user.pk))
-        self.assertIsNone(TOKENS_CACHE.ttl(second_user.pk))
+        self.assertEqual(TOKENS_CACHE.ttl(self.user.pk), 1000)
+        self.assertNotEqual(TOKENS_CACHE.ttl(second_user.pk), 1000)
         hash = TOKENS_CACHE.get(second_user.pk)[0]
-        self.assertIsNone(TOKENS_CACHE.ttl(hash))
+        self.assertNotEqual(hash, 1000)
 
-    @patch('djforge_redis_multitokens.tokens_auth.drt_settings', new=MockedLibrarySettings(ttl_in_seconds=1000))
+    @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings(timeout=1000))
+    @patch('djforge_redis_multitokens.tokens_auth.drt_settings', new=MockedLibrarySettings())
     def test_correct_ttl_is_set_for_renewed_tokens(self):
         hash = TOKENS_CACHE.get(self.user.pk)[0]
         MultiToken.reset_tokens_ttl(self.user.pk)
 
         self.assertAlmostEquals(TOKENS_CACHE.ttl(self.user.pk), 1000)
         self.assertAlmostEquals(TOKENS_CACHE.ttl(hash), 1000)
+
+    @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings())
+    def test_immortal_tokens_stay_immortal_when_user_doesnt_provide_timeout(self):
+        hash = TOKENS_CACHE.get(self.user.pk)[0]
+        self.assertIsNone(TOKENS_CACHE.ttl(self.user.pk))
+        self.assertIsNone(TOKENS_CACHE.ttl(hash))
+        MultiToken.reset_tokens_ttl(self.user.pk)
+
+        self.assertIsNone(TOKENS_CACHE.ttl(self.user.pk))
+        self.assertIsNone(TOKENS_CACHE.ttl(hash))
+
+    @patch('djforge_redis_multitokens.tokens_auth.settings', new=MockedSettings(timeout=None))
+    def test_immortal_tokens_stay_immortal_when_user_provided_timeout_is_None(self):
+        hash = TOKENS_CACHE.get(self.user.pk)[0]
+        self.assertIsNone(TOKENS_CACHE.ttl(self.user.pk))
+        self.assertIsNone(TOKENS_CACHE.ttl(hash))
+        MultiToken.reset_tokens_ttl(self.user.pk)
+
+        self.assertIsNone(TOKENS_CACHE.ttl(self.user.pk))
+        self.assertIsNone(TOKENS_CACHE.ttl(hash))
+
+    @patch('djforge_redis_multitokens.tokens_auth.settings')
+    def test_token_with_ttl_becomes_immortal_when_user_changes_timeout_to_None(self, mocked_settings):
+        hash = TOKENS_CACHE.get(self.user.pk)[0]
+        TOKENS_CACHE.expire(self.user.pk, 1000)
+        TOKENS_CACHE.expire(TOKENS_CACHE.ttl(hash), 1000)
+
+        settings = MockedSettings(timeout=None)
+        mocked_settings.CACHES.__getitem__.return_value = settings.CACHES['default']
+        MultiToken.reset_tokens_ttl(self.user.pk)
+
+        self.assertIsNone(TOKENS_CACHE.ttl(self.user.pk))
+        self.assertIsNone(TOKENS_CACHE.ttl(hash))
+
+    @patch('djforge_redis_multitokens.tokens_auth.settings')
+    def test_token_with_ttl_gets_new_ttl_when_user_changes_timeout_to_2000(self, mocked_settings):
+        hash = TOKENS_CACHE.get(self.user.pk)[0]
+        TOKENS_CACHE.expire(self.user.pk, 1000)
+        TOKENS_CACHE.expire(TOKENS_CACHE.ttl(hash), 1000)
+
+        settings = MockedSettings(timeout=2000)
+        mocked_settings.CACHES.__getitem__.return_value = settings.CACHES['default']
+        MultiToken.reset_tokens_ttl(self.user.pk)
+
+        self.assertEqual(TOKENS_CACHE.ttl(self.user.pk), 2000)
+        self.assertEqual(TOKENS_CACHE.ttl(hash), 2000)

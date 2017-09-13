@@ -30,8 +30,8 @@ class MultiToken:
         else:
             tokens.append(hash)
 
-        cls._set_value_in_cache(str(user.pk), tokens)
-        cls._set_value_in_cache(hash, str(user.pk))
+        cls._set_key_value(str(user.pk), tokens)
+        cls._set_key_value(hash, str(user.pk))
 
         return MultiToken(full_token, user), created
 
@@ -52,7 +52,7 @@ class MultiToken:
 
         if tokens and hash in tokens:
             tokens.remove(hash)
-            cls._set_value_in_cache(str(user_pk), tokens)
+            cls._set_key_value(str(user_pk), tokens)
 
         TOKENS_CACHE.delete(hash)
 
@@ -72,21 +72,29 @@ class MultiToken:
         for h in hashed_tokens:
             cls._reset_token_ttl(h)
 
-
     @classmethod
     def _reset_token_ttl(cls, key):
-        if TOKENS_CACHE.ttl(key) is None:
+        timeout = cls._get_user_provided_ttl()
+        key_ttl = TOKENS_CACHE.ttl(key)
+
+        if key_ttl is None and timeout is not None:
             if drt_settings.OVERWRITE_NONE_TTL:
-                TOKENS_CACHE.expire(key, drt_settings.TOKEN_TTL_IN_SECONDS)
+                TOKENS_CACHE.expire(key, timeout)
+        elif key_ttl is None and timeout is None:
+            pass
+        elif key_ttl is not None and timeout is None:
+            TOKENS_CACHE.persist(key)
         else:
-            TOKENS_CACHE.expire(key, drt_settings.TOKEN_TTL_IN_SECONDS)
+            TOKENS_CACHE.expire(key, timeout)
 
     @classmethod
-    def _set_value_in_cache(cls, key, value):
-        if 'TIMEOUT' in settings.CACHES[drt_settings.REDIS_DB_NAME]:
-            TOKENS_CACHE.set(key, value)
-        else:
-            TOKENS_CACHE.set(key, value, timeout=drt_settings.TOKEN_TTL_IN_SECONDS)
+    def _set_key_value(cls, key, value):
+        timeout = cls._get_user_provided_ttl()
+        TOKENS_CACHE.set(key, value, timeout=timeout)
+
+    @classmethod
+    def _get_user_provided_ttl(cls):
+        return settings.CACHES[drt_settings.REDIS_DB_NAME].get('TIMEOUT', None)
 
 
 class CachedTokenAuthentication(TokenAuthentication):

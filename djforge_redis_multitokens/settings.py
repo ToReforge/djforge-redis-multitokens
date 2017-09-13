@@ -7,7 +7,6 @@ DEFAULT_DJFORGE_REDIS_MULTITOKENS = {
             'REDIS_DB_NAME': 'tokens',
             'RESET_TOKEN_TTL_ON_USER_LOG_IN': True,
             'OVERWRITE_NONE_TTL': True,
-            'TOKEN_TTL_IN_SECONDS': 2678400,
         }
 }
 

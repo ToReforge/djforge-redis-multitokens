@@ -41,8 +41,7 @@ class MockedSettings:
 
 class MockedLibrarySettings:
 
-    def __init__(self, overwrite_ttl=True, ttl_in_seconds=1100000):
+    def __init__(self, overwrite_ttl=True):
         self.REDIS_DB_NAME = drf_settings.REDIS_DB_NAME
         self.RESET_TOKEN_TTL_ON_USER_LOG_IN = True
         self.OVERWRITE_NONE_TTL = overwrite_ttl
-        self.TOKEN_TTL_IN_SECONDS = ttl_in_seconds

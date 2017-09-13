@@ -31,26 +31,26 @@ CACHES = {
             'OPTIONS': {
                 'DB': 2,
             },
+            'TIMEOUT': None,
         }
     }
 ```
 **Notes**
 - In the above definition, we're setting "tokens" as the name for the Redis db that will contain tokens. You can change this name, more on that later.
+- `TIMEOUT` is used to expire tokens. `TIMEOUT: 10000` means that new tokens will be valid for 10000 before they expire and are removed from Redis.   
 ## Custom Settings
 ```python
 DJFORGE_REDIS_MULTITOKENS = {
     'REDIS_DB_NAME': 'custom_redis_db_name_for_tokens',
     'RESET_TOKEN_TTL_ON_USER_LOG_IN': True,
     'OVERWRITE_NONE_TTL': True,
-    'TOKEN_TTL_IN_SECONDS': 1200000,
 }
 ```
 Put the above in your Django settings module to customize the behavior of `djforge-redis-multitokens`:    
 - `REDIS_DB_NAME`: set this to the same name you defined for your Redis db("tokens" in the above defnition).
-- `RESET_TOKEN_TTL_ON_USER_LOG_IN` extends the life of tokens by `TOKEN_TTL_IN_SECONDS` seconds.
-- `OVERWRITE_NONE_TTL` will overwrite the previous ttl of `None`(which means Redis will never expire your token) set on a token. Set this to `False` if you don't want your immortal tokens to become mortal.   
+- `RESET_TOKEN_TTL_ON_USER_LOG_IN` extends the life of tokens by `TIMEOUT` seconds(set in settings.`CACHES`).
+- `OVERWRITE_NONE_TTL` will overwrite the previous ttl of `None`(`None` means Redis will never expire your token) set on a token. Set this to `False` if you don't want your immortal tokens to become mortal.   
 - In other words, if you set `OVERWRITE_NONE_TTL` to `False`, the ttl of tokens with ttl `None` will not change. They will never expire.   
-- `TOKEN_TTL_IN_SECONDS` specifies for how long each token lives. This ttl(time-to-live) is set on each token once per user session(after user authentication succeeds) if `RESET_TOKEN_TTL_ON_USER_LOG_IN` is set to `True`.
 ## Setup Token Authentication
 There's complicated logic involved in token authentication, but `Django REST framework(DRF)` comes with a "pluggable" authentication module that supports token authentication so that `djforge-redis-multitokens` can change where tokens are stored.   
 We want our tokens to be stored in Redis, so we have to change the default authentication class:   
@@ -134,7 +134,6 @@ DJFORGE_REDIS_MULTITOKENS = {
     'REDIS_DB_NAME': 'custom_redis_db_name_for_tokens',
     'RESET_TOKEN_TTL_ON_USER_LOG_IN': True,
     'OVERWRITE_NONE_TTL': False,
-    'TOKEN_TTL_IN_SECONDS': 1200000,
 }
 ```
 
