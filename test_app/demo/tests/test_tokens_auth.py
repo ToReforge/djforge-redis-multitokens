@@ -5,6 +5,8 @@ except ImportError:
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from rest_framework import status
+from rest_framework.test import APIClient
 
 from .utils import (
     create_test_user,
@@ -230,3 +232,32 @@ class TestResetTokensTTLMethod(SetupTearDownForMultiTokenTests, TestCase):
 
         self.assertEqual(TOKENS_CACHE.ttl(self.user.pk), 2000)
         self.assertEqual(TOKENS_CACHE.ttl(hash), 2000)
+
+
+class TestCachedTokenAuthentication(SetupTearDownForMultiTokenTests, TestCase):
+    header_prefix = 'Token '
+
+    def test_auth_for_user_without_token_fails(self):
+        TOKENS_CACHE.clear()
+        client = APIClient(enforce_csrf_checks=True)
+        response = client.post('/token/', {'username': self.user.username}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_auth_for_user_with_token_succeeds(self):
+        client = APIClient(enforce_csrf_checks=True)
+        auth = self.header_prefix + self.token.key
+        response = client.post('/token/', {'example': 'example'}, HTTP_AUTHORIZATION=auth)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_auth_with_wrong_token_fails(self):
+        client = APIClient(enforce_csrf_checks=True)
+        auth = self.header_prefix + self.token.key + 'blah'
+        response = client.post('/token/', {'example': 'example'}, HTTP_AUTHORIZATION=auth)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @patch('djforge_redis_multitokens.tokens_auth.MultiToken.reset_tokens_ttl')
+    def test_successful_auth_renews_token(self, mock_reset_ttl_method):
+        client = APIClient(enforce_csrf_checks=True)
+        auth = self.header_prefix + self.token.key
+        response = client.post('/token/', {'example': 'example'}, HTTP_AUTHORIZATION=auth)
+        mock_reset_ttl_method.assert_called_once_with(self.user.pk)
