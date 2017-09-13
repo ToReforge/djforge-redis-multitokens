@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/ToReforge/djforge-redis-multitokens.svg?branch=master)](https://travis-ci.org/ToReforge/djforge-redis-multitokens)  [![Coverage Status](https://coveralls.io/repos/github/ToReforge/djforge-redis-multitokens/badge.svg?branch=master)](https://coveralls.io/github/ToReforge/djforge-redis-multitokens?branch=master)   
-**Compatible with: Python: 2.7, 3.5, 3.6  Django: 1.11  DRF: 3.6**
-# What Does drf-redis-tokens Do?
+**Compatible with: Python: 2.7, 3.5, 3.6  Django: 1.10, 1.11  DRF: 3.6**
+# What Does djforge-redis-multitokens Do?
 `djforge-redis-multitokens` is a plugin for DRF and Django that allows you to create multiple tokens for each user(one per device or browser) and store them in Redis.    
 Here's why you may want to use this plugin:
 - Your users have multiple devices and a log out from one device(or browser) should not log the user out on other devices(or browsers)
@@ -21,7 +21,6 @@ Follow the instructions here(http://django-redis-cache.readthedocs.io/en/latest/
 Once you're done with the installation step, make a Redis db for your tokens in your Django settings file:   
 ```python
 CACHES = {
-        ...
         # other Redis db definitions above
 
         # tokens db definition
@@ -60,7 +59,6 @@ REST_FRAMEWORK = {
             ' djforge_redis_multitokens.tokens_auth.CachedTokenAuthentication',
         ),
         # your other DRF configurations goes below
-        ...
     }
 ```
 **Note**    
@@ -114,7 +112,7 @@ If you want your tokens to never expire, you need to do 2 things:
 1) Set `TIMEOUT` to `None` in `CACHES`:
 ```python
 CACHES = {
-        ...
+        
         # other Redis db definitions above
 
         # tokens db definition

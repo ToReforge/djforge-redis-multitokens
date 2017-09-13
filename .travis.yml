@@ -3,17 +3,18 @@ language: python
 python:
   - "3.6"
   - "3.5"
+  - "3.4"
+  - "2.7"
 
 services: redis
 
 install:
-  - "pip install ."
+  - "pip install --editable ."
   - "pip install -r test_app/requirements"
 
 script:
-  - cd test_app/demo
-  - python manage.py migrate
-  - coverage run --source="$VIRTUAL_ENV/lib/python3.6/site-packages/drf_redis_tokens/" manage.py test tests/
+  - python test_app/demo/manage.py migrate
+  - coverage run --source="./djforge_redis_multitokens/" test_app/demo/manage.py test test_app/demo/tests/
 
 after_success:
   - coverage report
