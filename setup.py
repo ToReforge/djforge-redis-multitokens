@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name='djforge_redis_multitokens',
-    version='0.0.2',
+    version='0.0.3',
     packages=['djforge_redis_multitokens'],
     license='MIT',
     author='Mikaeil Orfanian',
